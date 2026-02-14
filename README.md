@@ -108,6 +108,7 @@ In that go template, the following variables may be used:
 - `.host`, `.port`, `.sentinelHost`, `.sentinelPort`, `.primaryName` (only if sentinel is enabled)
 - `.tlsEnabled` (whether TLS encryption is enabled or not)
 - `.caData` (CA certificate that clients may use to connect to valkey)
+- `.password` (password for the `default` user)
 
 ### Customize pod settings
 
