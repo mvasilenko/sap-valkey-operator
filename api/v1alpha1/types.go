@@ -19,6 +19,9 @@ import (
 // ValkeySpec defines the desired state of Valkey
 type ValkeySpec struct {
 	Version string `json:"version,omitempty"`
+	// ImageRegistry overrides the container registry for all Valkey images (e.g. a private Artifactory mirror).
+	// +optional
+	ImageRegistry string `json:"imageRegistry,omitempty"`
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default=1
 	Replicas                                int `json:"replicas,omitempty"`
