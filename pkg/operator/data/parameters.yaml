@@ -20,11 +20,16 @@ image:
   tag: {{ . }}
   {{- end }}
 
-{{- if $persistenceEnabled }}
-{{- with .persistence.storageClass }}
+{{- if or .imageRegistry (and $persistenceEnabled .persistence.storageClass) }}
 global:
+  {{- with .imageRegistry }}
+  imageRegistry: {{ . }}
+  {{- end }}
+  {{- if $persistenceEnabled }}
+  {{- with .persistence.storageClass }}
   storageClass: {{ . }}
-{{- end }}
+  {{- end }}
+  {{- end }}
 {{- end }}
 
 {{- if gt .replicas 1 }}
