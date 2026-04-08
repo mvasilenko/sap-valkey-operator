@@ -17,13 +17,10 @@ COPY api/ api/
 COPY pkg/ pkg/
 COPY crds/ crds/
 COPY internal/ internal/
-COPY tests/ tests/
 COPY Makefile Makefile
 
-# Run tests and build
-RUN make envtest \
- && CGO_ENABLED=0 KUBEBUILDER_ASSETS="/workspace/bin/k8s/current" go test ./... \
- && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager main.go
+# Build (tests are run separately in the CI test job on native amd64)
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
