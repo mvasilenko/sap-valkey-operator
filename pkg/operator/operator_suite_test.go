@@ -360,6 +360,53 @@ var _ = Describe("Deploy Valkey", func() {
 		}
 		Expect(bindingSecret.Data).To(Equal(expectedSecretData))
 	})
+
+	It("should deploy Valkey with auth.existingSecret and use that secret for binding password", func() {
+		// Pre-create a secret with a known password
+		existingSecretName := "my-custom-credentials"
+		knownPassword := "my-externally-managed-password"
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      existingSecretName,
+			},
+			Data: map[string][]byte{
+				"valkey-password": []byte(knownPassword),
+			},
+		}
+		err := cli.Create(ctx, existingSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		valkey := &operatorv1alpha1.Valkey{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "test",
+			},
+			Spec: operatorv1alpha1.ValkeySpec{
+				Auth: &operatorv1alpha1.AuthProperties{
+					ExistingSecret: existingSecretName,
+				},
+			},
+		}
+
+		err = cli.Create(ctx, valkey)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			if err := cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: valkey.Name}, valkey); err != nil {
+				return err
+			}
+			if valkey.Status.ObservedGeneration != valkey.Generation || valkey.Status.State != component.StateReady {
+				return fmt.Errorf("again")
+			}
+			return nil
+		}, "10s", "100ms").Should(Succeed())
+
+		bindingSecret := &corev1.Secret{}
+		err = cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: fmt.Sprintf("valkey-%s-binding", valkey.Name)}, bindingSecret)
+		Expect(err).NotTo(HaveOccurred())
+		// Binding password must come from the pre-created secret, not the auto-generated one
+		Expect(string(bindingSecret.Data["password"])).To(Equal(knownPassword))
+	})
 })
 
 func createNamespace() string {
