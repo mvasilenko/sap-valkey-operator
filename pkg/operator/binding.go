@@ -39,6 +39,9 @@ func reconcileBinding(ctx context.Context, client client.Client, valkey *operato
 
 	authSecret := &corev1.Secret{}
 	authSecretName := fmt.Sprintf("valkey-%s", valkey.Name)
+	if valkey.Spec.Auth != nil && valkey.Spec.Auth.ExistingSecret != "" {
+		authSecretName = valkey.Spec.Auth.ExistingSecret
+	}
 	if err := client.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: authSecretName}, authSecret); err != nil {
 		return err
 	}

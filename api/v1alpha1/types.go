@@ -33,6 +33,7 @@ type ValkeySpec struct {
 	TLS                                     *TLSProperties         `json:"tls,omitempty"`
 	Persistence                             *PersistenceProperties `json:"persistence,omitempty"`
 	Binding                                 *BindingProperties     `json:"binding,omitempty"`
+	Auth                                    *AuthProperties        `json:"auth,omitempty"`
 	ExtraEnvVars                            []corev1.EnvVar        `json:"extraEnvVars,omitempty"`
 	ExtraFlags                              []string               `json:"extraFlags,omitempty"`
 }
@@ -98,6 +99,13 @@ type PersistenceProperties struct {
 type BindingProperties struct {
 	SecretName string  `json:"secretName,omitempty"`
 	Template   *string `json:"template,omitempty"`
+}
+
+// AuthProperties models authentication settings for the valkey cluster.
+// When ExistingSecret is set, the operator skips internal password generation
+// and reads the password from the specified Kubernetes Secret instead.
+type AuthProperties struct {
+	ExistingSecret string `json:"existingSecret,omitempty"`
 }
 
 // ValkeyStatus defines the observed state of Valkey
