@@ -14,6 +14,12 @@ fullnameOverride: {{ $fullname }}
 {{- $bindingSecretName = printf "%s-binding" $fullname }}
 {{- end }}
 
+{{- $authExistingSecret := (dig "auth" "existingSecret" "" .) }}
+{{- if ne $authExistingSecret "" }}
+auth:
+  existingSecret: {{ $authExistingSecret }}
+{{- end }}
+
 image:
   repository: bitnamilegacy/valkey
   {{- with .Version}}
