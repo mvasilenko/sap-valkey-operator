@@ -5892,6 +5892,11 @@ spec:
                             type: string
                         type: object
                     type: object
+                  caSecret:
+                    description: Name of an existing Secret containing a ca.crt key
+                      with the root CA certificate. When set, a projected volume merges
+                      this root CA with the cert-manager TLS secret.
+                    type: string
                   enabled:
                     type: boolean
                 type: object
