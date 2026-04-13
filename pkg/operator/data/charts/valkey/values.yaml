@@ -1631,6 +1631,11 @@ tls:
   ## @param tls.dhParamsFilename File containing DH params (in order to support DH based ciphers)
   ##
   dhParamsFilename: ""
+  ## @param tls.caSecret Name of an existing Secret containing a ca.crt key with the root CA.
+  ## When set, a projected volume merges this root CA with the TLS secret so health probes
+  ## can verify the full certificate chain when using private PKI.
+  ##
+  caSecret: ""
 ## @section Metrics Parameters
 ##
 metrics:

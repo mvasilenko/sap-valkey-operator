@@ -5876,6 +5876,12 @@ spec:
               tls:
                 description: TLSProperties models TLS settings of the valkey services
                 properties:
+                  caSecret:
+                    description: |-
+                      CASecret is the name of an existing Secret containing a ca.crt key with the root CA certificate.
+                      When set, a projected volume merges this root CA with the cert-manager TLS secret,
+                      allowing health probes to verify the full certificate chain.
+                    type: string
                   certManager:
                     description: CertManagerProperties models cert-manager related
                       attributes
