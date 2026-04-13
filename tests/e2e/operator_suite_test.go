@@ -574,12 +574,16 @@ func doSomethingWithValkey(valkey *operatorv1alpha1.Valkey) {
 		err = primaryClient.Set(ctx, "some-key", value, 0).Err()
 		Expect(err).NotTo(HaveOccurred())
 
+		// Wait for at least 1 replica to acknowledge the write before reading from replica
+		replicas, err := primaryClient.Wait(ctx, 1, 5*time.Second).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(replicas).To(BeNumerically(">=", int64(1)))
+
 		val, err := primaryClient.Get(ctx, "some-key").Result()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(val).To(Equal(value))
 		fmt.Println("Test data from valkey: ", val)
 
-		// TODO: it may happen that readerClient uses the primary; should we improve this ?
 		readerNode, ok := valkeyNodeMap[fmt.Sprintf("%s:%s", binding["host"], binding["port"])]
 		Expect(ok).To(BeTrue())
 		readerClient := govalkey.NewClient(&govalkey.Options{
@@ -620,6 +624,13 @@ func doSomethingWithValkey(valkey *operatorv1alpha1.Valkey) {
 		value := uuid.New().String()
 		err = primaryClient.Set(ctx, "some-key", value, 0).Err()
 		Expect(err).NotTo(HaveOccurred())
+
+		// Wait for at least 1 replica to acknowledge the write before reading from replica
+		if valkey.Spec.Replicas > 1 {
+			replicas, err := primaryClient.Wait(ctx, 1, 5*time.Second).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(replicas).To(BeNumerically(">=", int64(1)))
+		}
 
 		val, err := primaryClient.Get(ctx, "some-key").Result()
 		Expect(err).NotTo(HaveOccurred())
