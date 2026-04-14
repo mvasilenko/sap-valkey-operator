@@ -321,6 +321,20 @@ var _ = Describe("Deploy Valkey", func() {
 		}
 		Expect(tlsPortValue).To(Equal("6379"), "VALKEY_TLS_PORT must not be empty to avoid tls-port parse failure at startup")
 
+		// Regression: when caSecret is set the valkey-certificates volume must be a projected
+		// volume (merging TLS secret + CA secret). A plain secret volume omits the CA and causes
+		// "tlsv1 alert unknown ca" errors in health probes and sentinel-to-node connections.
+		var certsVolume *corev1.Volume
+		for i := range statefulSet.Spec.Template.Spec.Volumes {
+			if statefulSet.Spec.Template.Spec.Volumes[i].Name == "valkey-certificates" {
+				certsVolume = &statefulSet.Spec.Template.Spec.Volumes[i]
+			}
+		}
+		Expect(certsVolume).NotTo(BeNil(), "valkey-certificates volume must exist")
+		// TLS is enabled without caSecret in this test case — plain secret volume expected.
+		Expect(certsVolume.Secret).NotTo(BeNil(), "expected plain secret volume when caSecret is not set")
+		Expect(certsVolume.Projected).To(BeNil(), "expected no projected volume when caSecret is not set")
+
 		// validate that sentinel.enabled is immutable
 		_valkey := valkey.DeepCopy()
 		_valkey.Spec.Sentinel = &operatorv1alpha1.SentinelProperties{Enabled: false}
@@ -340,6 +354,56 @@ var _ = Describe("Deploy Valkey", func() {
 		_valkey.Spec.Persistence = nil
 		err = cli.Update(ctx, _valkey)
 		Expect(apierrors.IsForbidden(err)).To(BeTrue())
+	})
+
+	It("should deploy Valkey with sentinel and TLS with caSecret, projecting CA into valkey-certificates volume", func() {
+		// Pre-create a fake CA secret to test caSecret projected volume handling.
+		caSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "root-ca"},
+			Data:       map[string][]byte{"ca.crt": []byte("fake-ca")},
+		}
+		err := cli.Create(ctx, caSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		valkey := &operatorv1alpha1.Valkey{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test"},
+			Spec: operatorv1alpha1.ValkeySpec{
+				Replicas: 3,
+				Sentinel: &operatorv1alpha1.SentinelProperties{Enabled: true},
+				TLS: &operatorv1alpha1.TLSProperties{
+					Enabled:  true,
+					CASecret: "root-ca",
+				},
+			},
+		}
+		err = cli.Create(ctx, valkey)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			if err := cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: valkey.Name}, valkey); err != nil {
+				return err
+			}
+			if valkey.Status.ObservedGeneration != valkey.Generation || valkey.Status.State != component.StateReady {
+				return fmt.Errorf("again")
+			}
+			return nil
+		}, "10s", "100ms").Should(Succeed())
+
+		// Regression: caSecret must produce a projected volume merging TLS cert + CA.
+		// A plain secret volume omits the CA and causes "unknown ca" TLS errors.
+		statefulSet := &appsv1.StatefulSet{}
+		err = cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: fmt.Sprintf("valkey-%s-node", valkey.Name)}, statefulSet)
+		Expect(err).NotTo(HaveOccurred())
+
+		var certsVolume *corev1.Volume
+		for i := range statefulSet.Spec.Template.Spec.Volumes {
+			if statefulSet.Spec.Template.Spec.Volumes[i].Name == "valkey-certificates" {
+				certsVolume = &statefulSet.Spec.Template.Spec.Volumes[i]
+			}
+		}
+		Expect(certsVolume).NotTo(BeNil(), "valkey-certificates volume must exist")
+		Expect(certsVolume.Projected).NotTo(BeNil(), "valkey-certificates must be a projected volume when caSecret is set")
+		Expect(certsVolume.Secret).To(BeNil(), "valkey-certificates must not be a plain secret volume when caSecret is set")
+		Expect(certsVolume.Projected.Sources).To(HaveLen(2), "projected volume must have two sources: TLS secret and CA secret")
 	})
 
 	It("should deploy Valkey with one primary and some read replicas, with a custom binding template", func() {
