@@ -304,6 +304,23 @@ var _ = Describe("Deploy Valkey", func() {
 		}
 		Expect(bindingSecret.Data).To(Equal(expectedSecretData))
 
+		// Regression: VALKEY_TLS_PORT must be "6379", not empty.
+		// A shallow values merge dropping containerPorts defaults causes tls-port "" FATAL error at startup.
+		statefulSet := &appsv1.StatefulSet{}
+		err = cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: fmt.Sprintf("valkey-%s-node", valkey.Name)}, statefulSet)
+		Expect(err).NotTo(HaveOccurred())
+		var tlsPortValue string
+		for _, container := range statefulSet.Spec.Template.Spec.Containers {
+			if container.Name == "valkey" {
+				for _, env := range container.Env {
+					if env.Name == "VALKEY_TLS_PORT" {
+						tlsPortValue = env.Value
+					}
+				}
+			}
+		}
+		Expect(tlsPortValue).To(Equal("6379"), "VALKEY_TLS_PORT must not be empty to avoid tls-port parse failure at startup")
+
 		// validate that sentinel.enabled is immutable
 		_valkey := valkey.DeepCopy()
 		_valkey.Spec.Sentinel = &operatorv1alpha1.SentinelProperties{Enabled: false}

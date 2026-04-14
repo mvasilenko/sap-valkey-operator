@@ -46,6 +46,10 @@ pdb:
 
 primary:
   replicaCount: 1
+  {{- if $tlsEnabled }}
+  containerPorts:
+    valkey: 6379
+  {{- end }}
   {{- with .nodeSelector }}
   nodeSelector:
     {{- toYaml . | nindent 4 }}
@@ -115,6 +119,10 @@ primary:
   
 replica:
   replicaCount: {{ ternary .replicas (max (sub .replicas 1) 0) $sentinelEnabled }}
+  {{- if $tlsEnabled }}
+  containerPorts:
+    valkey: 6379
+  {{- end }}
   {{- with .nodeSelector }}
   nodeSelector:
     {{- toYaml . | nindent 4 }}
