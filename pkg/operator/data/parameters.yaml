@@ -30,7 +30,7 @@ global:
 {{- if gt .replicas 1 }}
 pdb:
   create: true
-  minAvailable: "50%"
+  maxUnavailable: "50%"
 {{- end }}
 
 primary:
