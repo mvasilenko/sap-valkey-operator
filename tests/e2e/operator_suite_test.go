@@ -579,7 +579,6 @@ func doSomethingWithValkey(valkey *operatorv1alpha1.Valkey) {
 		Expect(val).To(Equal(value))
 		fmt.Println("Test data from valkey: ", val)
 
-		// TODO: it may happen that readerClient uses the primary; should we improve this ?
 		readerNode, ok := valkeyNodeMap[fmt.Sprintf("%s:%s", binding["host"], binding["port"])]
 		Expect(ok).To(BeTrue())
 		readerClient := govalkey.NewClient(&govalkey.Options{
@@ -589,9 +588,23 @@ func doSomethingWithValkey(valkey *operatorv1alpha1.Valkey) {
 			DB:        0,
 		})
 
-		val, err = readerClient.Get(ctx, "some-key").Result()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(value))
+		// Best-effort: ask the primary to wait for replication acknowledgement.
+		// WAIT may return 0 if replication is slow (e.g. TLS overhead in CI); we
+		// don't assert on the count and rely on Eventually below instead.
+		if valkey.Spec.Replicas > 1 {
+			primaryClient.Wait(ctx, 1, 5*time.Second) //nolint:errcheck
+		}
+
+		Eventually(func() error {
+			v, err := readerClient.Get(ctx, "some-key").Result()
+			if err != nil {
+				return err
+			}
+			if v != value {
+				return fmt.Errorf("expected %q, got %q", value, v)
+			}
+			return nil
+		}, "15s", "500ms").Should(Succeed())
 
 	} else {
 		valkeyNodeMap := make(ValkeyNodeMap)
@@ -621,6 +634,11 @@ func doSomethingWithValkey(valkey *operatorv1alpha1.Valkey) {
 		err = primaryClient.Set(ctx, "some-key", value, 0).Err()
 		Expect(err).NotTo(HaveOccurred())
 
+		// Best-effort: ask the primary to wait for replication acknowledgement.
+		if valkey.Spec.Replicas > 1 {
+			primaryClient.Wait(ctx, 1, 5*time.Second) //nolint:errcheck
+		}
+
 		val, err := primaryClient.Get(ctx, "some-key").Result()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(val).To(Equal(value))
@@ -635,9 +653,16 @@ func doSomethingWithValkey(valkey *operatorv1alpha1.Valkey) {
 				DB:        0,
 			})
 
-			val, err := replicaClient.Get(ctx, "some-key").Result()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(val).To(Equal(value))
+			Eventually(func() error {
+				v, err := replicaClient.Get(ctx, "some-key").Result()
+				if err != nil {
+					return err
+				}
+				if v != value {
+					return fmt.Errorf("expected %q, got %q", value, v)
+				}
+				return nil
+			}, "15s", "500ms").Should(Succeed())
 		}
 	}
 }
