@@ -69,6 +69,12 @@ type MetricsPrometheusRuleProperties struct {
 type TLSProperties struct {
 	Enabled     bool                   `json:"enabled,omitempty"`
 	CertManager *CertManagerProperties `json:"certManager,omitempty"`
+	// CASecret is the name of an existing Secret containing a "ca.crt" key with the root CA certificate.
+	// When set, a projected volume merges this root CA with the cert-manager TLS secret,
+	// allowing health probes to verify the full certificate chain.
+	// Only valid when CertManager is also configured.
+	// +optional
+	CASecret string `json:"caSecret,omitempty"`
 }
 
 // CertManagerProperties models cert-manager related attributes

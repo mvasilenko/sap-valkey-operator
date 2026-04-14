@@ -469,9 +469,27 @@ spec:
           {{- end }}
         {{- if .Values.tls.enabled }}
         - name: valkey-certificates
+          {{- if .Values.tls.caSecret }}
+          projected:
+            defaultMode: 256
+            sources:
+            - secret:
+                name: {{ include "valkey.tlsSecretName" . }}
+                items:
+                - key: {{ .Values.tls.certFilename | default "tls.crt" }}
+                  path: {{ .Values.tls.certFilename | default "tls.crt" }}
+                - key: {{ .Values.tls.certKeyFilename | default "tls.key" }}
+                  path: {{ .Values.tls.certKeyFilename | default "tls.key" }}
+            - secret:
+                name: {{ .Values.tls.caSecret }}
+                items:
+                - key: ca.crt
+                  path: {{ .Values.tls.certCAFilename | default "ca.crt" }}
+          {{- else }}
           secret:
             secretName: {{ include "valkey.tlsSecretName" . }}
             defaultMode: 256
+          {{- end }}
         {{- end }}
         {{- if .Values.replica.extraVolumes }}
         {{- include "common.tplvalues.render" ( dict "value" .Values.replica.extraVolumes "context" $ ) | nindent 8 }}
