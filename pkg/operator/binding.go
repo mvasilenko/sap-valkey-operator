@@ -39,10 +39,17 @@ func reconcileBinding(ctx context.Context, client client.Client, valkey *operato
 
 	authSecret := &corev1.Secret{}
 	authSecretName := fmt.Sprintf("valkey-%s", valkey.Name)
+	if valkey.Spec.Auth != nil && valkey.Spec.Auth.ExistingSecret != "" {
+		authSecretName = valkey.Spec.Auth.ExistingSecret
+	}
 	if err := client.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: authSecretName}, authSecret); err != nil {
 		return err
 	}
-	params["password"] = string(authSecret.Data["valkey-password"])
+	password, ok := authSecret.Data["valkey-password"]
+	if !ok {
+		return fmt.Errorf("secret %s/%s does not contain key \"valkey-password\"", valkey.Namespace, authSecretName)
+	}
+	params["password"] = string(password)
 
 	if valkey.Spec.TLS != nil && valkey.Spec.TLS.Enabled {
 		params["tlsEnabled"] = true

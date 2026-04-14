@@ -325,6 +325,50 @@ var _ = Describe("Deploy Valkey", func() {
 		Expect(apierrors.IsForbidden(err)).To(BeTrue())
 	})
 
+	It("should deploy Valkey with auth.existingSecret and use the specified secret for binding", func() {
+		// Create the pre-existing auth secret
+		existingSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "my-valkey-password",
+			},
+			Data: map[string][]byte{
+				"valkey-password": []byte("supersecret"),
+			},
+		}
+		err := cli.Create(ctx, existingSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		valkey := &operatorv1alpha1.Valkey{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "test",
+			},
+			Spec: operatorv1alpha1.ValkeySpec{
+				Auth: &operatorv1alpha1.AuthProperties{
+					ExistingSecret: "my-valkey-password",
+				},
+			},
+		}
+
+		err = cli.Create(ctx, valkey)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			if err := cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: valkey.Name}, valkey); err != nil {
+				return err
+			}
+			if valkey.Status.ObservedGeneration != valkey.Generation || valkey.Status.State != component.StateReady {
+				return fmt.Errorf("again")
+			}
+			return nil
+		}, "10s", "100ms").Should(Succeed())
+
+		bindingSecret := &corev1.Secret{}
+		err = cli.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: fmt.Sprintf("valkey-%s-binding", valkey.Name)}, bindingSecret)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(bindingSecret.Data["password"])).To(Equal("supersecret"))
+	})
+
 	It("should deploy Valkey with one primary and some read replicas, with a custom binding template", func() {
 		valkey := &operatorv1alpha1.Valkey{
 			ObjectMeta: metav1.ObjectMeta{
