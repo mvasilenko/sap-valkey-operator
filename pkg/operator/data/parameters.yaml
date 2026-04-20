@@ -191,8 +191,16 @@ replica:
   {{- end }}   
 
 {{- if $sentinelEnabled }}
+rbac:
+  create: true
+serviceAccount:
+  create: true
+replica:
+  automountServiceAccountToken: true
 sentinel:
   enabled: true
+  service:
+    createPrimary: true
   image:
     repository: bitnamilegacy/valkey-sentinel
     {{- with .version }}
