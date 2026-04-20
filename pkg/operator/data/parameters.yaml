@@ -188,15 +188,16 @@ replica:
   {{- with .sidecars }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- end }}   
+  {{- end }}
+  {{- if $sentinelEnabled }}
+  automountServiceAccountToken: true
+  {{- end }}
 
 {{- if $sentinelEnabled }}
 rbac:
   create: true
 serviceAccount:
   create: true
-replica:
-  automountServiceAccountToken: true
 kubectl:
   image:
     repository: bitnami/kubectl
