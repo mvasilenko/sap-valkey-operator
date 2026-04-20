@@ -197,6 +197,9 @@ serviceAccount:
   create: true
 replica:
   automountServiceAccountToken: true
+kubectl:
+  image:
+    repository: bitnami/kubectl
 sentinel:
   enabled: true
   service:
