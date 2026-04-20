@@ -200,7 +200,7 @@ serviceAccount:
   create: true
 kubectl:
   image:
-    repository: bitnami/kubectl
+    repository: bitnamilegacy/kubectl
 sentinel:
   enabled: true
   service:
