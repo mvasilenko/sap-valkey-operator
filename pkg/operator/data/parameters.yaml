@@ -188,11 +188,23 @@ replica:
   {{- with .sidecars }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- end }}   
+  {{- end }}
+  {{- if $sentinelEnabled }}
+  automountServiceAccountToken: true
+  {{- end }}
 
 {{- if $sentinelEnabled }}
+rbac:
+  create: true
+serviceAccount:
+  create: true
+kubectl:
+  image:
+    repository: bitnamilegacy/kubectl
 sentinel:
   enabled: true
+  service:
+    createPrimary: true
   image:
     repository: bitnamilegacy/valkey-sentinel
     {{- with .version }}
